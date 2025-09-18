@@ -32,5 +32,3 @@ jobs:
 
       - run: npm publish --provenance --access public
         working-directory: ./packages/vite-plugin-react-use-cache
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
