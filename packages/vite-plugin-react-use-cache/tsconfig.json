@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "composite": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedDeclarations": true,
+    "module": "node16",
+    "noEmit": true,
+    "rewriteRelativeImportExtensions": true,
+    "strict": true,
+    "types": ["node", "vite/client"],
+    "verbatimModuleSyntax": true
+  }
+}
