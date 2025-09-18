@@ -66,8 +66,7 @@ export default async function Home() {
   // Enable caching for this route/component
   "use cache";
 
-  // Set the cache lifetime — the package accepts a string token such as 'seconds',
-  // or you can pass a number/TTL depending on your cache adapter.
+  // Set the cache lifetime — the package accepts a string token such as 'seconds', 'minutes', ...
   cacheLife("seconds");
 
   const data = await fetchSomeSharedData();
