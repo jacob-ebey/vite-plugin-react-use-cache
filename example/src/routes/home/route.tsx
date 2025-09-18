@@ -1,8 +1,11 @@
+import { cacheLife } from "vite-plugin-react-use-cache/runtime";
+
 import { getSharedData } from "../../shared.ts";
 import { Counter } from "./client.tsx";
 
 export default async function Home() {
   "use cache";
+  cacheLife("seconds");
 
   console.log("Rendering Home Route");
 
