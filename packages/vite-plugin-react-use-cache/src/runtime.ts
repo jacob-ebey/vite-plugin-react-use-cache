@@ -5,6 +5,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import {
   createFromReadableStream,
+  encodeReply,
   renderToReadableStream,
 } from "@vitejs/plugin-rsc/rsc";
 
@@ -34,7 +35,11 @@ export function cache<Func extends (...args: any[]) => any>(
 
     const cached = await store.cache.getItem(key);
 
-    if (cached && (!cached.isElement || import.meta.env.PROD)) {
+    if (
+      cached &&
+      !cached.tags.some((tag) => store.revalidatedTags.has(tag)) &&
+      (!cached.isElement || import.meta.env.PROD)
+    ) {
       const { encoded, isElement } = cached;
 
       if (!isElement || !import.meta.env.DEV) {
@@ -51,6 +56,8 @@ export function cache<Func extends (...args: any[]) => any>(
 
     const cacheContext: CacheStorage = {
       cache: store.cache,
+      revalidatedTags: store.revalidatedTags,
+      tags: store.tags ?? new Set(),
     };
 
     let toCache = cacheStorage.run(cacheContext, async () => func(...args));
@@ -76,21 +83,28 @@ export function cache<Func extends (...args: any[]) => any>(
         if (errors.length) {
           throw new AggregateError(
             errors,
-            "Errors occurred during cache encoding"
+            "Errors occurred during cache encoding."
           );
         }
       })
       .then(async () => {
         const isElement = React.isValidElement(await toCache);
+        if (store.tags && cacheContext.tags) {
+          for (const tag of cacheContext.tags) {
+            store.tags.add(tag);
+            store.revalidatedTags.delete(tag);
+          }
+        }
 
         if (!isElement || import.meta.env.PROD) {
           return store.cache.setItem(key, {
             encoded,
-            isElement,
             expires:
               Date.now() +
               (cacheLifeTimes.get(cacheContext.life ?? "default") ??
                 cacheLifeTimes.get("default")!),
+            isElement,
+            tags: Array.from(cacheContext.tags ?? []),
           });
         }
       })
@@ -105,7 +119,7 @@ export function cache<Func extends (...args: any[]) => any>(
 export function cacheLife(life: CacheLife) {
   const store = cacheStorage.getStore();
   if (!store) {
-    throw new Error("cacheLife must be called within a cache context");
+    throw new Error("cacheLife must be called within a cache context.");
   }
   if (
     !store.life ||
@@ -116,13 +130,37 @@ export function cacheLife(life: CacheLife) {
   }
 }
 
+export function cacheTag(tag: string) {
+  const store = cacheStorage.getStore();
+  if (!store) {
+    throw new Error("cacheTag must be called within a cache context.");
+  }
+  if (!store.tags) {
+    throw new Error(
+      "cacheTag must be used within a scope with the 'use cache' directive."
+    );
+  }
+  store.tags.add(tag);
+}
+
+export async function revalidateTag(tag: string) {
+  const store = cacheStorage.getStore();
+  if (!store) {
+    throw new Error("revalidateTag must be called within a cache context.");
+  }
+  store.revalidatedTags.add(tag);
+  for (const revalidatedTag of await store.cache.revalidateTag(tag)) {
+    store.revalidatedTags.add(revalidatedTag);
+  }
+}
+
 export function provideCache<T>(cache: Cache, func: () => Promise<T>) {
-  return cacheStorage.run({ cache }, func);
+  return cacheStorage.run({ cache, revalidatedTags: new Set() }, func);
 }
 
 async function getKey(deps: unknown[], args: unknown[]): Promise<string> {
   return await new Response(
-    await renderToReadableStream([
+    await encodeReply([
       deps.map(tryPrase).filter(Boolean),
       args.map(tryPrase).filter(Boolean),
     ])
@@ -178,16 +216,20 @@ export type CacheEntry = {
   encoded: string;
   expires: number;
   isElement: boolean;
+  tags: string[];
 };
 
 export interface Cache {
   getItem(key: string): Promise<CacheEntry | null>;
+  revalidateTag(tag: string): Promise<Set<string>>;
   setItem(key: string, value: CacheEntry): Promise<void>;
 }
 
 type CacheStorage = {
-  life?: CacheLife;
   cache: Cache;
+  revalidatedTags: Set<string>;
+  life?: CacheLife;
+  tags?: Set<string>;
 };
 
 declare global {

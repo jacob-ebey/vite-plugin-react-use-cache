@@ -1,6 +1,6 @@
 import { cacheLife } from "vite-plugin-react-use-cache/runtime";
 
-import { getSharedData } from "../../shared.ts";
+import { getSharedData, revalidateSharedData } from "../../shared.ts";
 import { Counter } from "./client.tsx";
 
 export default async function Home() {
@@ -22,6 +22,11 @@ export default async function Home() {
         </p>
       </article>
       <Counter />
+      <form action={revalidateSharedData}>
+        <button className="mt-4 rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-700">
+          Revalidate Shared Data
+        </button>
+      </form>
     </main>
   );
 }
