@@ -2,8 +2,8 @@
 
 A Vite plugin and runtime to enable the `"use cache"` directive in RSC projects. This package provides:
 
-- `useCachePlugin()` — a Vite plugin to wire up build-time needs.
-- `provideCache()` — provides a cache implementation.
+- `useCachePlugin()` - a Vite plugin to wire up build-time needs.
+- `provideCache()` - provides a cache implementation.
 - A `"use cache"` directive and `cacheLife()`, `cacheTag()` and `revalidateTag()` helpers for marking scopes as cacheable and revalidation.
 
 ## Install
@@ -70,7 +70,7 @@ export default async function Home() {
   // Enable caching for this route/component
   "use cache";
 
-  // Set the cache lifetime — the package accepts a string token such as 'seconds', 'minutes', ...
+  // Set the cache lifetime - the package accepts a string token such as 'seconds', 'minutes', ...
   cacheLife("seconds");
   cacheTag("home-page");
 
@@ -97,11 +97,11 @@ Notes:
 
 ## API
 
-- `useCachePlugin(): Plugin` — Vite plugin, call in your Vite config. No options required for the basic use case.
-- `provideCache(cacheImpl, fn)` — Run `fn` with the provided cache implementation available to the RSC runtime and route modules.
-- `cacheLife(value)` — Set the cache lifetime for the current scope.
-- `cacheTag(tag)` — Associate the current cached scope (data function or component with `"use cache"`) with an arbitrary tag string for later invalidation.
-- `revalidateTag(tag)` — Invalidate all cached entries associated with `tag` (and any tags they reference) causing subsequent calls to recompute.
+- `useCachePlugin(): Plugin` - Vite plugin, call in your Vite config. No options required for the basic use case.
+- `provideCache(cacheImpl, fn)` - Run `fn` with the provided cache implementation available to the RSC runtime and route modules.
+- `cacheLife(value)` - Set the cache lifetime for the current scope.
+- `cacheTag(tag)` - Associate the current cached scope (data function or component with `"use cache"`) with an arbitrary tag string for later invalidation.
+- `revalidateTag(tag)` - Invalidate all cached entries associated with `tag` (and any tags they reference) causing subsequent calls to recompute.
 
 ## Contributing
 
