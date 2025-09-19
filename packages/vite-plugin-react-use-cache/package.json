@@ -59,7 +59,7 @@
     "tsdown": "0.15.2",
     "typescript": "5.9.2",
     "unstorage": "1.17.1",
-    "vite": "7.1.5"
+    "vite": "7.1.6"
   },
   "dependencies": {
     "@babel/core": "7.28.4",

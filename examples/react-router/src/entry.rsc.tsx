@@ -16,7 +16,7 @@ import { routes } from "./routes/config";
 
 const cacheStorage = createStorage({
   driver: fsDriver({
-    base: "./.cache",
+    base: "./node_modules/.use-cache",
   }),
 });
 

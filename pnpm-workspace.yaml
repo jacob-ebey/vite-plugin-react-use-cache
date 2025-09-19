@@ -1,3 +1,7 @@
 packages:
-  - 'examples/*'
-  - 'packages/*'
+  - "examples/*"
+  - "packages/*"
+
+overrides:
+  "@vitejs/plugin-rsc": "$@vitejs/plugin-rsc"
+  "vite": "$vite"
