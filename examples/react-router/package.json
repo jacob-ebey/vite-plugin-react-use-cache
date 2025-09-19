@@ -14,7 +14,7 @@
     "express": "5.1.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "react-router": "7.7.0",
+    "react-router": "7.9.1",
     "unstorage": "1.17.1"
   },
   "devDependencies": {
