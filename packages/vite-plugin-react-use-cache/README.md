@@ -4,7 +4,7 @@ A Vite plugin and runtime to enable the `"use cache"` directive in RSC projects.
 
 - `useCachePlugin()` — a Vite plugin to wire up build-time needs.
 - `provideCache()` — provides a cache implementation.
-- A `"use cache"` directive and `cacheLife()` helper for marking scopes as cacheable.
+- A `"use cache"` directive and `cacheLife()`, `cacheTag()` and `revalidateTag()` helpers for marking scopes as cacheable and revalidation.
 
 ## Install
 
@@ -60,7 +60,11 @@ function fetchServer(request: Request) {
 3. Cache data or components by adding the `"use cache"` directive and optionally calling `cacheLife(...)`:
 
 ```tsx
-import { cacheLife } from "vite-plugin-react-use-cache/runtime";
+import {
+  cacheTag,
+  cacheLife,
+  revalidateTag,
+} from "vite-plugin-react-use-cache/runtime";
 
 export default async function Home() {
   // Enable caching for this route/component
@@ -68,9 +72,22 @@ export default async function Home() {
 
   // Set the cache lifetime — the package accepts a string token such as 'seconds', 'minutes', ...
   cacheLife("seconds");
+  cacheTag("home-page");
 
   const data = await fetchSomeSharedData();
-  return <div>{data}</div>;
+  return (
+    <div>
+      {data}
+      <form
+        action={async () => {
+          "use server";
+          await revalidateTag("home-page");
+        }}
+      >
+        <button type="submit">Revalidate Home</button>
+      </form>
+    </div>
+  );
 }
 ```
 
@@ -83,6 +100,8 @@ Notes:
 - `useCachePlugin(): Plugin` — Vite plugin, call in your Vite config. No options required for the basic use case.
 - `provideCache(cacheImpl, fn)` — Run `fn` with the provided cache implementation available to the RSC runtime and route modules.
 - `cacheLife(value)` — Set the cache lifetime for the current scope.
+- `cacheTag(tag)` — Associate the current cached scope (data function or component with `"use cache"`) with an arbitrary tag string for later invalidation.
+- `revalidateTag(tag)` — Invalidate all cached entries associated with `tag` (and any tags they reference) causing subsequent calls to recompute.
 
 ## Contributing
 
