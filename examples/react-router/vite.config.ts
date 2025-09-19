@@ -8,7 +8,11 @@ import { useCachePlugin } from "vite-plugin-react-use-cache";
 export default defineConfig({
   plugins: [
     tailwindcss(),
-    react(),
+    react({
+      babel: {
+        plugins: ["babel-plugin-react-compiler"],
+      },
+    }),
     rsc({
       entries: {
         client: "src/entry.browser.tsx",
