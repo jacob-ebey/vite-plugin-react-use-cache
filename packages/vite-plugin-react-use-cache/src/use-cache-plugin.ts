@@ -169,7 +169,9 @@ export function useCachePlugin({
       const res = await babelCore.transformAsync(code, babelConfig);
       if (typeof res?.code !== "string") return;
       return {
-        code: res.code,
+        // ensure new line to workaround
+        // https://github.com/vitejs/vite-plugin-react/pull/923
+        code: res.code + "\n",
         map: res.map,
       };
     },
