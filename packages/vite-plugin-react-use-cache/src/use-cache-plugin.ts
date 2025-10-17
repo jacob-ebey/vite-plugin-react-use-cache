@@ -26,7 +26,7 @@ export function useCachePlugin({
     rsc?: string;
   };
 } = {}): vite.Plugin {
-  const devCacheIdMap: Record<string, number> = {};
+  const cacheIdMap: Record<string, number> = {};
 
   return {
     name: "react-use-cache",
@@ -64,8 +64,8 @@ export function useCachePlugin({
         path.relative(this.environment.config.root, id)
       );
       if (mode === 'dev') {
-        devCacheIdMap[id] ??= 0
-        devCacheIdMap[id]++;
+        cacheIdMap[id] ??= 0
+        cacheIdMap[id]++; 
       }
 
       let cacheImported: babelCore.types.Identifier | null = null;
@@ -128,7 +128,7 @@ export function useCachePlugin({
                     functionScope
                   );
                   if (mode === 'dev') {
-                    cacheIds.push(String(devCacheIdMap[id]))
+                    cacheIds.push(String(cacheIdMap[id]))
                   }
 
                   const clone = babelCore.types.cloneNode(
@@ -175,9 +175,11 @@ export function useCachePlugin({
     },
     hotUpdate(ctx) {
       if (this.environment.name === rscEnv) {
+        // invalidate "use cache" module when any depending module changes.
+        // this will allow "use cache" transform to run again with a different cache id.
         const importers = collectImporters(ctx.modules);
         for (const node of importers) {
-          if (node.id && node.id in devCacheIdMap) {
+          if (node.id && node.id in cacheIdMap) {
             this.environment.moduleGraph.invalidateModule(node);
           }
         }
