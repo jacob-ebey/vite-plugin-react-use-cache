@@ -18,11 +18,12 @@ export async function Component(props) {
   return "test" + props;
 }
 
+const x = 1;
 export async function closure() {
-  const x = 1;
+  const y = 2;
   function inner(props) {
     "use cache";
-    return x + props;
+    return x + y + props;
   }
 }
 `;
@@ -32,14 +33,15 @@ export async function closure() {
     export async function Component(props) {
       return _cache(async props => {
         return "test" + props;
-      }, [_getFileHash(), "transform.test.ts:2:7", "4618a3725deea9a3a7ba0572529f472340a04f72a302ff67ed942065a8b358cb"])();
+      }, [_getFileHash(), "transform.test.ts:2:7", "4618a3725deea9a3a7ba0572529f472340a04f72a302ff67ed942065a8b358cb"])(props);
     }
+    const x = 1;
     export async function closure() {
-      const x = 1;
+      const y = 2;
       function inner(props) {
-        return _cache(async (x, props) => {
-          return x + props;
-        }, [_getFileHash(), "transform.test.ts:9:2", "408078bff104670819e91dd749bbade2777b44cf8b416a8590ea8105e62d615f"])();
+        return _cache(async (y, props) => {
+          return x + y + props;
+        }, [_getFileHash(), "transform.test.ts:10:2", "2f208d67999bb14ec8a648b7bac93064432a6763407ad98746f77c8949744b6d"])(y, props);
       }
     }"
   `);

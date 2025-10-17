@@ -143,7 +143,7 @@ export function useCachePlugin({
                             ).map((v) => babelCore.types.stringLiteral(v)),
                           ]),
                         ]),
-                        []
+                        cacheFunctionArgs
                       )
                     ),
                   ]);
