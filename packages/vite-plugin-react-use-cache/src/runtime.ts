@@ -101,7 +101,6 @@ export function cache<Func extends (...args: any[]) => any>(
         }
       })
       .then(async () => {
-        const isElement = React.isValidElement(await toCache);
         if (store.tags && cacheContext.tags) {
           for (const tag of cacheContext.tags) {
             store.tags.add(tag);
@@ -115,7 +114,6 @@ export function cache<Func extends (...args: any[]) => any>(
             Date.now() +
             (cacheLifeTimes.get(cacheContext.life ?? "default") ??
               cacheLifeTimes.get("default")!),
-          isElement,
           tags: Array.from(cacheContext.tags ?? []),
         });
       })
@@ -208,7 +206,6 @@ const cacheLifeTimes: Map<CacheLife, number> = new Map([
 export type CacheEntry = {
   encoded: string;
   expires: number;
-  isElement: boolean;
   tags: string[];
 };
 
