@@ -24,7 +24,7 @@ export function getFileHash(): string {
 
 export function cache<Func extends (...args: any[]) => any>(
   func: Func,
-  deps: unknown[]
+  deps: string[]
 ): MakeAsync<Func> {
   return React.cache<MakeAsync<Func>>(async (...args) => {
     const store = cacheStorage.getStore();
@@ -35,11 +35,21 @@ export function cache<Func extends (...args: any[]) => any>(
     }
 
     const clientTemporaryReferences = createClientTemporaryReferenceSet()
-    const encodedDepsAndArgs = await encodeReply([...deps, ...args], {
+    const encodedKeys = await encodeReply([...deps, ...args], {
       temporaryReferences: clientTemporaryReferences,
     })
-    const key = await hashData(encodedDepsAndArgs);
+    const key = await hashData(encodedKeys);
     const cached = await store.cache.getItem(key);
+
+    function returnFromStream(stream: ReadableStream) {
+      return createFromReadableStream<any>(stream,
+        {
+          environmentName: 'Cache',
+          replayConsoleLogs: true,
+          temporaryReferences: clientTemporaryReferences,
+        }
+      );
+    }
 
     if (
       cached &&
@@ -49,19 +59,7 @@ export function cache<Func extends (...args: any[]) => any>(
       const { encoded, isElement } = cached;
 
       if (!isElement || !import.meta.env.DEV) {
-        return await createFromReadableStream(
-          new ReadableStream({
-            async start(controller) {
-              controller.enqueue(new TextEncoder().encode(encoded));
-              controller.close();
-            },
-          }),
-          {
-            environmentName: 'Cache',
-            replayConsoleLogs: true,
-            temporaryReferences: clientTemporaryReferences,
-          }
-        );
+        return returnFromStream(stringToStream(encoded))
       }
     }
 
@@ -72,21 +70,21 @@ export function cache<Func extends (...args: any[]) => any>(
     };
 
     const temporaryReferences = createTemporaryReferenceSet()
-    const decodedDepsAndArgs = await decodeReply(encodedDepsAndArgs, {
+    const decodedKeys = await decodeReply(encodedKeys, {
       temporaryReferences,
     })
-    const decodedArgs = decodedDepsAndArgs.slice(deps.length);
+    const decodedArgs = decodedKeys.slice(deps.length)
     let toCache = cacheStorage.run(cacheContext, async () => func(...decodedArgs));
 
     let errors: unknown[] = [];
-    const stream = renderToReadableStream(toCache, {
+    const toCacheStream = renderToReadableStream(toCache, {
       environmentName: 'Cache',
       temporaryReferences,
       onError(error: unknown) {
         errors.push(error);
       },
     });
-    const [returnStream, storageStream] = stream.tee();
+    const [resultStream, storageStream] = toCacheStream.tee();
 
     let encoded = "";
     storageStream
@@ -131,13 +129,7 @@ export function cache<Func extends (...args: any[]) => any>(
         console.error("Failed to cache:", reason);
       });
 
-    return createFromReadableStream<any>(returnStream,
-      {
-        environmentName: 'Cache',
-        replayConsoleLogs: true,
-        temporaryReferences: clientTemporaryReferences,
-      }
-    );
+    return returnFromStream(resultStream);
   });
 }
 
@@ -246,8 +238,9 @@ declare global {
 const cacheStorage = (global.___VITE_USE_CACHE_STORAGE___ ??=
   new AsyncLocalStorage<CacheStorage>());
 
-async function hashData(reply: string | FormData) {
-  const encodedData = await new Response(reply).arrayBuffer();
+async function hashData(encodedArgs: string | FormData) {
+  const encodedData = await new Response(encodedArgs).arrayBuffer()
+  
   // Compute the SHA-256 hash
   const hashBuffer = await crypto.subtle.digest(
     {
@@ -263,4 +256,13 @@ async function hashData(reply: string | FormData) {
     .join("");
 
   return hexHash;
+}
+
+function stringToStream(s: string): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(s));
+      controller.close();
+    },
+  });
 }
