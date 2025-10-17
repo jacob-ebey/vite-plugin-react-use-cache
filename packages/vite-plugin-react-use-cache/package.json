@@ -36,12 +36,13 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "tsdown"
+    "build": "tsdown",
+    "test": "vitest"
   },
   "peerDependencies": {
     "@vitejs/plugin-rsc": "*",
-    "unstorage": "*",
     "react": "*",
+    "unstorage": "*",
     "vite": "*"
   },
   "peerDependenciesMeta": {
@@ -59,7 +60,8 @@
     "tsdown": "0.15.2",
     "typescript": "5.9.2",
     "unstorage": "1.17.1",
-    "vite": "7.1.6"
+    "vite": "7.1.6",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@babel/core": "7.28.4",
