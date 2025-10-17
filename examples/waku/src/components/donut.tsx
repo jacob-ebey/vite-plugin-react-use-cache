@@ -1,5 +1,6 @@
 import { cacheTag, revalidateTag } from "vite-plugin-react-use-cache/runtime";
 import { unstable_rerenderRoute } from "waku/router/server";
+import { CacheComponentInner } from "./other";
 
 export function Donut() {
   return (
@@ -31,6 +32,7 @@ async function CacheComponent(props: { children?: React.ReactNode }) {
     <div className="border-red-500 border p-2">
       "use cache" component (rendered at {new Date().toISOString()})
       {props.children}
+      <CacheComponentInner />
     </div>
   );
 }
