@@ -4,8 +4,20 @@ import { cacheLife } from "vite-plugin-react-use-cache/runtime";
 
 import { Counter } from "../components/counter";
 import { getSharedData, revalidateSharedData } from "../shared";
+import { Donut } from "../components/donut";
 
-export default async function HomePage() {
+export default function HomePageWrapper() {
+  return (
+    <div>
+      <HomePage />
+      <div className="mt-4">
+        <Donut />
+      </div>
+    </div>
+  );
+}
+
+async function HomePage() {
   "use cache";
   cacheLife("seconds");
 
@@ -14,7 +26,7 @@ export default async function HomePage() {
   const shared = await getSharedData();
 
   return (
-    <div>
+    <>
       <title>{shared}</title>
       <h1 className="text-4xl font-bold tracking-tight">{shared}</h1>
       <Counter />
@@ -33,7 +45,7 @@ export default async function HomePage() {
           Revalidate Shared Data
         </button>
       </form>
-    </div>
+    </>
   );
 }
 

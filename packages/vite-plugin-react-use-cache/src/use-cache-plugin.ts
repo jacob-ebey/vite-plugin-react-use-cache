@@ -110,6 +110,12 @@ export function useCachePlugin({
 
                   const nonLocalVariables = getNonLocalVariables(functionScope);
                   const usedArgs = getUsedFunctionArguments(functionScope);
+                  const cacheFunctionArgs = [
+                    ...Array.from(nonLocalVariables).map((name) =>
+                      babelCore.types.identifier(name)
+                    ),
+                    ...usedArgs,
+                  ];
 
                   const clone = babelCore.types.cloneNode(
                     functionScope.node,
@@ -121,7 +127,7 @@ export function useCachePlugin({
                       babelCore.types.callExpression(
                         babelCore.types.callExpression(cacheImported, [
                           babelCore.types.arrowFunctionExpression(
-                            [],
+                            cacheFunctionArgs,
                             babelCore.types.cloneNode(functionScope.node.body),
                             true
                           ),
@@ -135,13 +141,9 @@ export function useCachePlugin({
                               mode,
                               functionScope
                             ).map((v) => babelCore.types.stringLiteral(v)),
-                            ...Array.from(nonLocalVariables).map((name) =>
-                              babelCore.types.identifier(name)
-                            ),
-                            ...usedArgs,
                           ]),
                         ]),
-                        []
+                        cacheFunctionArgs
                       )
                     ),
                   ]);

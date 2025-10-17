@@ -1,4 +1,4 @@
-import { Link } from 'waku';
+import { Link } from "waku";
 
 export default async function AboutPage() {
   const data = await getData();
@@ -17,9 +17,9 @@ export default async function AboutPage() {
 
 const getData = async () => {
   const data = {
-    title: 'About',
-    headline: 'About Waku',
-    body: 'The minimal React framework',
+    title: "About",
+    headline: "About Waku",
+    body: "The minimal React framework",
   };
 
   return data;
@@ -27,6 +27,6 @@ const getData = async () => {
 
 export const getConfig = async () => {
   return {
-    render: 'static',
+    render: "static",
   } as const;
 };
