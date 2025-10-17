@@ -3,10 +3,6 @@ import * as path from "node:path";
 
 import * as babelCore from "@babel/core";
 import { addNamed as addNamedImport } from "@babel/helper-module-imports";
-// @ts-expect-error These modules don't have types
-import babelPluginSyntaxJSX from "@babel/plugin-syntax-jsx";
-// @ts-expect-error These modules don't have types
-import babelPresetTypeScript from "@babel/preset-typescript";
 import * as vite from "vite";
 
 export function useCachePlugin({
@@ -67,9 +63,7 @@ export function useCachePlugin({
       let programPath!: babelCore.NodePath<babelCore.types.Program>;
       const babelConfig = {
         filename: id,
-        presets: [[babelPresetTypeScript, { jsx: "preserve" }]],
         plugins: [
-          babelPluginSyntaxJSX,
           () => {
             return {
               visitor: {
