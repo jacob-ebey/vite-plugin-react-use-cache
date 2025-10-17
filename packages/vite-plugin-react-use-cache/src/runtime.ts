@@ -54,14 +54,9 @@ export function cache<Func extends (...args: any[]) => any>(
     if (
       cached &&
       !cached.tags.some((tag) => store.revalidatedTags.has(tag))
-      // &&
-      // (!cached.isElement || import.meta.env.PROD)
     ) {
-      const { encoded, isElement } = cached;
-
-      // if (!isElement || !import.meta.env.DEV) {
-        return returnFromStream(stringToStream(encoded))
-      // }
+      const { encoded } = cached;
+      return returnFromStream(stringToStream(encoded))
     }
 
     const cacheContext: CacheStorage = {
@@ -114,17 +109,15 @@ export function cache<Func extends (...args: any[]) => any>(
           }
         }
 
-        // if (!isElement || import.meta.env.PROD) {
-          return store.cache.setItem(key, {
-            encoded,
-            expires:
-              Date.now() +
-              (cacheLifeTimes.get(cacheContext.life ?? "default") ??
-                cacheLifeTimes.get("default")!),
-            isElement,
-            tags: Array.from(cacheContext.tags ?? []),
-          });
-        // }
+        return store.cache.setItem(key, {
+          encoded,
+          expires:
+            Date.now() +
+            (cacheLifeTimes.get(cacheContext.life ?? "default") ??
+              cacheLifeTimes.get("default")!),
+          isElement,
+          tags: Array.from(cacheContext.tags ?? []),
+        });
       })
       .catch((reason) => {
         console.error("Failed to cache:", reason);
