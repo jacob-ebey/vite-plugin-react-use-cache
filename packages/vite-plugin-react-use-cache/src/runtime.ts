@@ -53,14 +53,10 @@ export function cache<Func extends (...args: any[]) => any>(
 
     if (
       cached &&
-      !cached.tags.some((tag) => store.revalidatedTags.has(tag)) &&
-      (!cached.isElement || import.meta.env.PROD)
+      !cached.tags.some((tag) => store.revalidatedTags.has(tag))
     ) {
-      const { encoded, isElement } = cached;
-
-      if (!isElement || !import.meta.env.DEV) {
-        return returnFromStream(stringToStream(encoded))
-      }
+      const { encoded } = cached;
+      return returnFromStream(stringToStream(encoded))
     }
 
     const cacheContext: CacheStorage = {
@@ -105,7 +101,6 @@ export function cache<Func extends (...args: any[]) => any>(
         }
       })
       .then(async () => {
-        const isElement = React.isValidElement(await toCache);
         if (store.tags && cacheContext.tags) {
           for (const tag of cacheContext.tags) {
             store.tags.add(tag);
@@ -113,17 +108,14 @@ export function cache<Func extends (...args: any[]) => any>(
           }
         }
 
-        if (!isElement || import.meta.env.PROD) {
-          return store.cache.setItem(key, {
-            encoded,
-            expires:
-              Date.now() +
-              (cacheLifeTimes.get(cacheContext.life ?? "default") ??
-                cacheLifeTimes.get("default")!),
-            isElement,
-            tags: Array.from(cacheContext.tags ?? []),
-          });
-        }
+        return store.cache.setItem(key, {
+          encoded,
+          expires:
+            Date.now() +
+            (cacheLifeTimes.get(cacheContext.life ?? "default") ??
+              cacheLifeTimes.get("default")!),
+          tags: Array.from(cacheContext.tags ?? []),
+        });
       })
       .catch((reason) => {
         console.error("Failed to cache:", reason);
@@ -214,7 +206,6 @@ const cacheLifeTimes: Map<CacheLife, number> = new Map([
 export type CacheEntry = {
   encoded: string;
   expires: number;
-  isElement: boolean;
   tags: string[];
 };
 

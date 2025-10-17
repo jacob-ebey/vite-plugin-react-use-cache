@@ -91,10 +91,6 @@ export default async function Home() {
 }
 ```
 
-Notes:
-
-- In development (dev) mode React components are not cached to preserve fast feedback and HMR behavior. Data functions are always cached.
-
 ## API
 
 - `useCachePlugin(): Plugin` - Vite plugin, call in your Vite config. No options required for the basic use case.
