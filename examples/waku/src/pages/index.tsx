@@ -10,7 +10,7 @@ export default function HomePageWrapper() {
   return (
     <div>
       <HomePage />
-      <div className="border-blue-400 -mx-4 mt-4 rounded-sm border border-dashed p-4">
+      <div className="mt-4">
         <Donut />
       </div>
     </div>
