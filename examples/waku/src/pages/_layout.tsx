@@ -1,9 +1,9 @@
-import '../styles.css';
+import "../styles.css";
 
-import type { ReactNode } from 'react';
+import type { ReactNode } from "react";
 
-import { Header } from '../components/header';
-import { Footer } from '../components/footer';
+import { Header } from "../components/header";
+import { Footer } from "../components/footer";
 
 type RootLayoutProps = { children: ReactNode };
 
@@ -14,6 +14,10 @@ export default async function RootLayout({ children }: RootLayoutProps) {
     <div className="font-['Nunito']">
       <meta name="description" content={data.description} />
       <link rel="icon" type="image/png" href={data.icon} />
+      <link
+        href="https://fonts.googleapis.com/css2?family=Nunito:wght@200..1000&display=swap"
+        rel="stylesheet"
+      />
       <Header />
       <main className="m-6 flex items-center *:min-h-64 *:min-w-64 lg:m-0 lg:min-h-svh lg:justify-center">
         {children}
@@ -25,8 +29,8 @@ export default async function RootLayout({ children }: RootLayoutProps) {
 
 const getData = async () => {
   const data = {
-    description: 'An internet website!',
-    icon: '/images/favicon.png',
+    description: "An internet website!",
+    icon: "/images/favicon.png",
   };
 
   return data;
@@ -34,6 +38,6 @@ const getData = async () => {
 
 export const getConfig = async () => {
   return {
-    render: 'static',
+    render: "static",
   } as const;
 };
