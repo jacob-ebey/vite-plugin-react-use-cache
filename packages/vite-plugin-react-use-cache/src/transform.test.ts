@@ -1,4 +1,4 @@
-import { test, expect, onTestFinished } from "vitest"
+import { test, expect, onTestFinished } from "vitest";
 import { useCachePlugin } from "./use-cache-plugin.ts";
 import { createServer } from "vite";
 
@@ -7,15 +7,15 @@ test("basic", async () => {
     configFile: false,
     root: import.meta.dirname,
     environments: { rsc: {} },
-  })
-  onTestFinished(() => server.close())
-  const plugin = useCachePlugin()
-  const context = { environment: server.environments.rsc }
+  });
+  onTestFinished(() => server.close());
+  const plugin = useCachePlugin();
+  const context = { environment: server.environments.rsc };
   const id = import.meta.filename;
   const code = `
 export async function Component(props) {
   "use cache";
-  return "test";
+  return "test" + props;
 }
 
 export async function closure() {
@@ -30,17 +30,17 @@ export async function closure() {
   expect(result.code).toMatchInlineSnapshot(`
     "import { cache as _cache, getFileHash as _getFileHash } from "vite-plugin-react-use-cache/runtime";
     export async function Component(props) {
-      return _cache(async () => {
-        return "test";
-      }, [_getFileHash(), "transform.test.ts:2:7", "dc941274278704274c1d7a82b000a511419a0b8dd114c4dcffe1f259f66df2df", props])();
+      return _cache(async props => {
+        return "test" + props;
+      }, [_getFileHash(), "transform.test.ts:2:7", "4618a3725deea9a3a7ba0572529f472340a04f72a302ff67ed942065a8b358cb"])();
     }
     export async function closure() {
       const x = 1;
       function inner(props) {
-        return _cache(async () => {
+        return _cache(async (x, props) => {
           return x + props;
-        }, [_getFileHash(), "transform.test.ts:9:2", "408078bff104670819e91dd749bbade2777b44cf8b416a8590ea8105e62d615f", x, props])();
+        }, [_getFileHash(), "transform.test.ts:9:2", "408078bff104670819e91dd749bbade2777b44cf8b416a8590ea8105e62d615f"])();
       }
     }"
   `);
-})
+});

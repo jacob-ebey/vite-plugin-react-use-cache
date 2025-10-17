@@ -7,16 +7,19 @@ import {
   createFromReadableStream,
   encodeReply,
   renderToReadableStream,
+  createClientTemporaryReferenceSet,
+  createTemporaryReferenceSet,
+  decodeReply,
 } from "@vitejs/plugin-rsc/rsc";
 
-export function getFileHash() {
+export function getFileHash(): string {
   const stack = new Error().stack || "";
   const line = stack.split("\n")[2];
   const start = line.lastIndexOf("(") + 1;
   const end = line.lastIndexOf(")");
   const filename = line.slice(start, end).replace(/\\/g, "/");
   const basename = filename.split("/").pop();
-  return basename;
+  return basename!;
 }
 
 export function cache<Func extends (...args: any[]) => any>(
@@ -31,8 +34,11 @@ export function cache<Func extends (...args: any[]) => any>(
       );
     }
 
-    const key = await hashData(await getKey(deps, args));
-
+    const clientTemporaryReferences = createClientTemporaryReferenceSet()
+    const encodedDepsAndArgs = await encodeReply([...deps, ...args], {
+      temporaryReferences: clientTemporaryReferences,
+    })
+    const key = await hashData(encodedDepsAndArgs);
     const cached = await store.cache.getItem(key);
 
     if (
@@ -49,7 +55,12 @@ export function cache<Func extends (...args: any[]) => any>(
               controller.enqueue(new TextEncoder().encode(encoded));
               controller.close();
             },
-          })
+          }),
+          {
+            environmentName: 'Cache',
+            replayConsoleLogs: true,
+            temporaryReferences: clientTemporaryReferences,
+          }
         );
       }
     }
@@ -60,18 +71,26 @@ export function cache<Func extends (...args: any[]) => any>(
       tags: store.tags ?? new Set(),
     };
 
-    let toCache = cacheStorage.run(cacheContext, async () => func(...args));
+    const temporaryReferences = createTemporaryReferenceSet()
+    const decodedDepsAndArgs = await decodeReply(encodedDepsAndArgs, {
+      temporaryReferences,
+    })
+    const decodedArgs = decodedDepsAndArgs.slice(deps.length);
+    let toCache = cacheStorage.run(cacheContext, async () => func(...decodedArgs));
 
     let errors: unknown[] = [];
-    const storageStream = renderToReadableStream(toCache, {
+    const stream = renderToReadableStream(toCache, {
+      environmentName: 'Cache',
+      temporaryReferences,
       onError(error: unknown) {
         errors.push(error);
       },
     });
+    const [returnStream, storageStream] = stream.tee();
 
     let encoded = "";
     storageStream
-      .pipeThrough(new TextDecoderStream())
+      .pipeThrough(new TextDecoderStream() as any)
       .pipeTo(
         new WritableStream({
           write(chunk) {
@@ -112,11 +131,17 @@ export function cache<Func extends (...args: any[]) => any>(
         console.error("Failed to cache:", reason);
       });
 
-    return toCache;
+    return createFromReadableStream<any>(returnStream,
+      {
+        environmentName: 'Cache',
+        replayConsoleLogs: true,
+        temporaryReferences: clientTemporaryReferences,
+      }
+    );
   });
 }
 
-export function cacheLife(life: CacheLife) {
+export function cacheLife(life: CacheLife): void {
   const store = cacheStorage.getStore();
   if (!store) {
     throw new Error("cacheLife must be called within a cache context.");
@@ -130,7 +155,7 @@ export function cacheLife(life: CacheLife) {
   }
 }
 
-export function cacheTag(tag: string) {
+export function cacheTag(tag: string): void {
   const store = cacheStorage.getStore();
   if (!store) {
     throw new Error("cacheTag must be called within a cache context.");
@@ -143,7 +168,7 @@ export function cacheTag(tag: string) {
   store.tags.add(tag);
 }
 
-export async function revalidateTag(tag: string) {
+export async function revalidateTag(tag: string): Promise<void> {
   const store = cacheStorage.getStore();
   if (!store) {
     throw new Error("revalidateTag must be called within a cache context.");
@@ -154,26 +179,8 @@ export async function revalidateTag(tag: string) {
   }
 }
 
-export function provideCache<T>(cache: Cache, func: () => Promise<T>) {
+export function provideCache<T>(cache: Cache, func: () => Promise<T>): Promise<T> {
   return cacheStorage.run({ cache, revalidatedTags: new Set() }, func);
-}
-
-async function getKey(deps: unknown[], args: unknown[]): Promise<string> {
-  return await new Response(
-    await encodeReply([
-      deps.map(tryPrase).filter(Boolean),
-      args.map(tryPrase).filter(Boolean),
-    ])
-  ).text();
-}
-
-function tryPrase(value: unknown): unknown {
-  try {
-    JSON.parse(JSON.stringify(value));
-    return value;
-  } catch {
-    return null;
-  }
 }
 
 type MakeAsync<Func extends (...args: any[]) => any> = (
@@ -239,11 +246,8 @@ declare global {
 const cacheStorage = (global.___VITE_USE_CACHE_STORAGE___ ??=
   new AsyncLocalStorage<CacheStorage>());
 
-async function hashData(dataString: string) {
-  // Encode the string into a Uint8Array
-  const textEncoder = new TextEncoder();
-  const encodedData = textEncoder.encode(dataString);
-
+async function hashData(reply: string | FormData) {
+  const encodedData = await new Response(reply).arrayBuffer();
   // Compute the SHA-256 hash
   const hashBuffer = await crypto.subtle.digest(
     {
