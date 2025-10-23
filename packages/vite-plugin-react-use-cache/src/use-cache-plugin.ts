@@ -22,6 +22,8 @@ export function useCachePlugin({
     rsc?: string;
   };
 } = {}): vite.Plugin {
+  const cacheIdMap: Record<string, number> = {};
+
   return {
     name: "react-use-cache",
     configEnvironment(name) {
@@ -57,6 +59,10 @@ export function useCachePlugin({
       const relativeFilename = vite.normalizePath(
         path.relative(this.environment.config.root, id)
       );
+      if (mode === 'dev') {
+        cacheIdMap[id] ??= 0
+        cacheIdMap[id]++; 
+      }
 
       let cacheImported: babelCore.types.Identifier | null = null;
       let getFileHashImported: babelCore.types.Identifier | null = null;
@@ -110,6 +116,14 @@ export function useCachePlugin({
                     ),
                     ...usedArgs,
                   ];
+                  const cacheIds = getCacheId(
+                    relativeFilename,
+                    mode,
+                    functionScope
+                  );
+                  if (mode === 'dev') {
+                    cacheIds.push(String(cacheIdMap[id]))
+                  }
 
                   const clone = babelCore.types.cloneNode(
                     functionScope.node,
@@ -130,11 +144,7 @@ export function useCachePlugin({
                               getFileHashImported,
                               []
                             ),
-                            ...getCacheId(
-                              relativeFilename,
-                              mode,
-                              functionScope
-                            ).map((v) => babelCore.types.stringLiteral(v)),
+                            ...cacheIds.map((v) => babelCore.types.stringLiteral(v)),
                           ]),
                         ]),
                         cacheFunctionArgs
@@ -153,11 +163,42 @@ export function useCachePlugin({
       const res = await babelCore.transformAsync(code, babelConfig);
       if (typeof res?.code !== "string") return;
       return {
-        code: res.code,
+        // ensure new line to workaround
+        // https://github.com/vitejs/vite-plugin-react/pull/923
+        code: res.code + "\n",
         map: res.map,
       };
     },
+    hotUpdate(ctx) {
+      if (this.environment.name === rscEnv) {
+        // invalidate "use cache" module when any depending module changes.
+        // this will allow "use cache" transform to run again with a different cache id.
+        const importers = collectImporters(ctx.modules);
+        for (const node of importers) {
+          if (node.id && node.id in cacheIdMap) {
+            this.environment.moduleGraph.invalidateModule(node);
+          }
+        }
+      }
+    }
   };
+}
+
+function collectImporters(roots: vite.EnvironmentModuleNode[]): Set<vite.EnvironmentModuleNode> {
+  const visited = new Set<vite.EnvironmentModuleNode>();
+  function recurse(node : vite.EnvironmentModuleNode) {
+    if (visited.has(node)) {
+      return;
+    }
+    visited.add(node);
+    for (const importer of node.importers) {
+      recurse(importer);
+    }
+  }
+  for (const root of roots) {
+    recurse(root);
+  }
+  return visited;
 }
 
 function getCacheId(
