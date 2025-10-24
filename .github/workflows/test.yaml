@@ -1,11 +1,9 @@
-name: Publish Packages
+name: Test
 
-on:
-  release:
-    types: [published]
+on: [pull_request]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
 
     permissions:
