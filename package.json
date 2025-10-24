@@ -2,7 +2,8 @@
   "private": true,
   "packageManager": "pnpm@10.17.0",
   "scripts": {
-    "build": "pnpm -r --filter \"./packages/*\" build"
+    "build": "pnpm -r --filter \"./packages/*\" build",
+    "test": "pnpm -r --filter \"./packages/*\" test"
   },
   "devDependencies": {
     "@vitejs/plugin-rsc": "0.4.31",

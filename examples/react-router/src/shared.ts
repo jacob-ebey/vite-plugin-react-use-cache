@@ -6,13 +6,14 @@ let i = 0;
 
 export async function getSharedData() {
   "use cache";
-  console.log("Fetching Shared Data");
   cacheTag("shared-data");
 
-  return `Hello, Shared ${i++}!`;
+  console.log(`Fetching Shared Data ${i}`);
+  return `Hello, Shared ${i}!`;
 }
 
 export async function revalidateSharedData() {
   "use server";
+  i++;
   await revalidateTag("shared-data");
 }

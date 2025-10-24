@@ -26,7 +26,7 @@ export function cache<Func extends (...args: any[]) => any>(
   func: Func,
   deps: string[]
 ): MakeAsync<Func> {
-  return React.cache<MakeAsync<Func>>(async (...args) => {
+  return React.cache(async (...args) => {
     const store = cacheStorage.getStore();
     if (!store) {
       throw new Error(
@@ -34,47 +34,47 @@ export function cache<Func extends (...args: any[]) => any>(
       );
     }
 
-    const clientTemporaryReferences = createClientTemporaryReferenceSet()
+    const clientTemporaryReferences = createClientTemporaryReferenceSet();
+
+    function returnFromStream(stream: ReadableStream) {
+      return createFromReadableStream<any>(stream, {
+        environmentName: "Cache",
+        replayConsoleLogs: false,
+        temporaryReferences: clientTemporaryReferences,
+      });
+    }
+
     const encodedKeys = await encodeReply([...deps, ...args], {
       temporaryReferences: clientTemporaryReferences,
-    })
+    });
     const key = await hashData(encodedKeys);
     const cached = await store.cache.getItem(key);
 
-    function returnFromStream(stream: ReadableStream) {
-      return createFromReadableStream<any>(stream,
-        {
-          environmentName: 'Cache',
-          replayConsoleLogs: true,
-          temporaryReferences: clientTemporaryReferences,
-        }
-      );
-    }
-
-    if (
-      cached &&
-      !cached.tags.some((tag) => store.revalidatedTags.has(tag))
-    ) {
+    if (cached && !cached.tags.some((tag) => store.revalidatedTags.has(tag))) {
       const { encoded } = cached;
-      return returnFromStream(stringToStream(encoded))
+      return returnFromStream(stringToStream(encoded));
     }
 
     const cacheContext: CacheStorage = {
       cache: store.cache,
       revalidatedTags: store.revalidatedTags,
       tags: store.tags ?? new Set(),
+      waitUntilToCache: store.waitUntilToCache,
+      waitUntil: store.waitUntil,
     };
 
-    const temporaryReferences = createTemporaryReferenceSet()
+    const temporaryReferences = createTemporaryReferenceSet();
     const decodedKeys = await decodeReply(encodedKeys, {
       temporaryReferences,
-    })
-    const decodedArgs = decodedKeys.slice(deps.length)
-    let toCache = cacheStorage.run(cacheContext, async () => func(...decodedArgs));
+    });
+    const decodedArgs = decodedKeys.slice(deps.length);
+    let toCache = cacheStorage.run(cacheContext, async () =>
+      func(...decodedArgs)
+    );
 
     let errors: unknown[] = [];
     const toCacheStream = renderToReadableStream(toCache, {
-      environmentName: 'Cache',
+      environmentName: "Cache",
       temporaryReferences,
       onError(error: unknown) {
         errors.push(error);
@@ -83,43 +83,48 @@ export function cache<Func extends (...args: any[]) => any>(
     const [resultStream, storageStream] = toCacheStream.tee();
 
     let encoded = "";
-    storageStream
-      .pipeThrough(new TextDecoderStream() as any)
-      .pipeTo(
-        new WritableStream({
-          write(chunk) {
-            encoded += chunk;
-          },
-        })
-      )
-      .then(async () => {
-        if (errors.length) {
-          throw new AggregateError(
-            errors,
-            "Errors occurred during cache encoding."
-          );
-        }
-      })
-      .then(async () => {
-        if (store.tags && cacheContext.tags) {
-          for (const tag of cacheContext.tags) {
-            store.tags.add(tag);
-            store.revalidatedTags.delete(tag);
-          }
-        }
+    store.waitUntil(
+      Promise.resolve(store.waitUntilToCache?.()).then(() =>
+        storageStream
+          .pipeThrough(new TextDecoderStream() as any)
+          .pipeTo(
+            new WritableStream({
+              write(chunk) {
+                encoded += chunk;
+              },
+            })
+          )
+          .then(async () => {
+            if (errors.length) {
+              throw new AggregateError(
+                errors,
+                "Errors occurred during cache encoding."
+              );
+            }
+          })
+          .then(() => {
+            if (store.tags && cacheContext.tags) {
+              for (const tag of cacheContext.tags) {
+                store.tags.add(tag);
+              }
+            }
 
-        return store.cache.setItem(key, {
-          encoded,
-          expires:
-            Date.now() +
-            (cacheLifeTimes.get(cacheContext.life ?? "default") ??
-              cacheLifeTimes.get("default")!),
-          tags: Array.from(cacheContext.tags ?? []),
-        });
-      })
-      .catch((reason) => {
-        console.error("Failed to cache:", reason);
-      });
+            const cacheTime =
+              cacheLifeTimes.get(cacheContext.life ?? "default") ??
+              cacheLifeTimes.get("default")!;
+
+            return store.cache.setItem(key, {
+              encoded,
+              expires: Date.now() + cacheTime,
+              tags: Array.from(cacheContext.tags ?? []),
+              cacheLife: cacheContext.life ?? "default",
+            });
+          })
+          .catch((reason) => {
+            console.error("Failed to cache:", reason);
+          })
+      )
+    );
 
     return returnFromStream(resultStream);
   });
@@ -163,8 +168,22 @@ export async function revalidateTag(tag: string): Promise<void> {
   }
 }
 
-export function provideCache<T>(cache: Cache, func: () => Promise<T>): Promise<T> {
-  return cacheStorage.run({ cache, revalidatedTags: new Set() }, func);
+export async function provideCache<T>(
+  cache: Cache,
+  func: () => Promise<T>,
+  waitUntilToCache: undefined | (() => Promise<void>) = undefined,
+  waitUntil: (promise: Promise<void>) => void = () => {}
+): Promise<T> {
+  const result = await cacheStorage.run(
+    {
+      cache,
+      revalidatedTags: new Set(),
+      waitUntilToCache,
+      waitUntil,
+    },
+    func
+  );
+  return result;
 }
 
 type MakeAsync<Func extends (...args: any[]) => any> = (
@@ -207,6 +226,7 @@ export type CacheEntry = {
   encoded: string;
   expires: number;
   tags: string[];
+  cacheLife: string;
 };
 
 export interface Cache {
@@ -220,6 +240,8 @@ type CacheStorage = {
   revalidatedTags: Set<string>;
   life?: CacheLife;
   tags?: Set<string>;
+  waitUntilToCache?: () => Promise<void>;
+  waitUntil: (promise: Promise<void>) => void;
 };
 
 declare global {
@@ -230,8 +252,8 @@ const cacheStorage = (global.___VITE_USE_CACHE_STORAGE___ ??=
   new AsyncLocalStorage<CacheStorage>());
 
 async function hashData(encodedArgs: string | FormData) {
-  const encodedData = await new Response(encodedArgs).arrayBuffer()
-  
+  const encodedData = await new Response(encodedArgs).arrayBuffer();
+
   // Compute the SHA-256 hash
   const hashBuffer = await crypto.subtle.digest(
     {
