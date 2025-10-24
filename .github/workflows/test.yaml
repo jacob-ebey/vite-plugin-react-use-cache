@@ -1,11 +1,9 @@
-name: Publish
+name: Test
 
-on:
-  release:
-    types: [published]
+on: [pull_request]
 
 jobs:
-  publish:
+  test:
     runs-on: ubuntu-latest
 
     permissions:
@@ -28,7 +26,4 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm build
-
-      - run: npm publish --provenance --access public
-        working-directory: ./packages/vite-plugin-react-use-cache
+      - run: pnpm test

@@ -4,9 +4,6 @@ import { getSharedData, revalidateSharedData } from "../../shared.ts";
 import { Counter } from "./client.tsx";
 
 export default async function Home() {
-  "use cache";
-  cacheLife("seconds");
-
   console.log("Rendering Home Route");
 
   const shared = await getSharedData();
@@ -17,6 +14,10 @@ export default async function Home() {
       <main className="mx-auto max-w-screen-xl px-4 py-8 lg:py-12">
         <article className="prose mx-auto">
           <h1>{shared}</h1>
+          <Donut>
+            <CachedSubComponent />
+            <p>Dynamic Children {new Date().toISOString()}</p>
+          </Donut>
           <p>
             This is a simple example of a React Router application using React
             Server Components (RSC) with Vite. It demonstrates how to set up a
@@ -31,5 +32,35 @@ export default async function Home() {
         </form>
       </main>
     </>
+  );
+}
+
+async function CachedSubComponent() {
+  "use cache";
+
+  console.log("Rendering CachedSubComponent");
+  const shared = await getSharedData();
+
+  return (
+    <p>
+      Cached Children {new Date().toISOString()} - {shared}
+    </p>
+  );
+}
+
+async function Donut({ children }: { children?: React.ReactNode }) {
+  "use cache";
+  cacheLife("minutes");
+
+  console.log("Rendering Donut");
+
+  return (
+    <div className="border-red-500 border p-2">
+      <p>
+        <code>"use cache"; cacheLife("minutes")</code>{" "}
+        {new Date().toISOString()}
+      </p>
+      {children}
+    </div>
   );
 }

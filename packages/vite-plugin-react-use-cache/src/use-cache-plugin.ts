@@ -59,16 +59,23 @@ export function useCachePlugin({
       const relativeFilename = vite.normalizePath(
         path.relative(this.environment.config.root, id)
       );
-      if (mode === 'dev') {
-        cacheIdMap[id] ??= 0
-        cacheIdMap[id]++; 
+      if (mode === "dev") {
+        cacheIdMap[id] ??= Date.now();
+        cacheIdMap[id]++;
       }
+
+      const filepath = id.split("?")[0];
+      const isJSX = filepath.endsWith("x");
 
       let cacheImported: babelCore.types.Identifier | null = null;
       let getFileHashImported: babelCore.types.Identifier | null = null;
       let programPath!: babelCore.NodePath<babelCore.types.Program>;
       const babelConfig = {
         filename: id,
+        sourceFileName: filepath,
+        retainLines: !this.environment.config.isProduction && isJSX,
+        sourceType: "module",
+        sourceMaps: true,
         plugins: [
           () => {
             return {
@@ -109,20 +116,27 @@ export function useCachePlugin({
                   if (!functionScope) return;
 
                   const nonLocalVariables = getNonLocalVariables(functionScope);
-                  const usedArgs = getUsedFunctionArguments(functionScope);
+                  const { cacheFunctionParams, callArgs } =
+                    getParameterInfo(functionScope);
                   const cacheFunctionArgs = [
                     ...Array.from(nonLocalVariables).map((name) =>
                       babelCore.types.identifier(name)
                     ),
-                    ...usedArgs,
+                    ...cacheFunctionParams,
+                  ];
+                  const cacheCallArgs = [
+                    ...Array.from(nonLocalVariables).map((name) =>
+                      babelCore.types.identifier(name)
+                    ),
+                    ...callArgs,
                   ];
                   const cacheIds = getCacheId(
                     relativeFilename,
                     mode,
                     functionScope
                   );
-                  if (mode === 'dev') {
-                    cacheIds.push(String(cacheIdMap[id]))
+                  if (mode === "dev") {
+                    cacheIds.push(String(cacheIdMap[id]));
                   }
 
                   const clone = babelCore.types.cloneNode(
@@ -144,10 +158,12 @@ export function useCachePlugin({
                               getFileHashImported,
                               []
                             ),
-                            ...cacheIds.map((v) => babelCore.types.stringLiteral(v)),
+                            ...cacheIds.map((v) =>
+                              babelCore.types.stringLiteral(v)
+                            ),
                           ]),
                         ]),
-                        cacheFunctionArgs
+                        cacheCallArgs
                       )
                     ),
                   ]);
@@ -158,7 +174,7 @@ export function useCachePlugin({
             };
           },
         ],
-      };
+      } satisfies babelCore.TransformOptions;
 
       const res = await babelCore.transformAsync(code, babelConfig);
       if (typeof res?.code !== "string") return;
@@ -180,13 +196,15 @@ export function useCachePlugin({
           }
         }
       }
-    }
+    },
   };
 }
 
-function collectImporters(roots: vite.EnvironmentModuleNode[]): Set<vite.EnvironmentModuleNode> {
+function collectImporters(
+  roots: vite.EnvironmentModuleNode[]
+): Set<vite.EnvironmentModuleNode> {
   const visited = new Set<vite.EnvironmentModuleNode>();
-  function recurse(node : vite.EnvironmentModuleNode) {
+  function recurse(node: vite.EnvironmentModuleNode) {
     if (visited.has(node)) {
       return;
     }
@@ -222,7 +240,74 @@ function getCacheId(
   return cacheIdParts;
 }
 
-function getUsedFunctionArguments(
+function patternToExpression(
+  pattern: babelCore.types.ObjectPattern | babelCore.types.ArrayPattern
+): babelCore.types.Expression {
+  if (babelCore.types.isObjectPattern(pattern)) {
+    const properties: babelCore.types.ObjectProperty[] = [];
+
+    for (const prop of pattern.properties) {
+      if (babelCore.types.isObjectProperty(prop)) {
+        const key = babelCore.types.cloneNode(prop.key);
+        let value: babelCore.types.Expression;
+
+        if (babelCore.types.isIdentifier(prop.value)) {
+          value = babelCore.types.identifier(prop.value.name);
+        } else if (
+          babelCore.types.isObjectPattern(prop.value) ||
+          babelCore.types.isArrayPattern(prop.value)
+        ) {
+          value = patternToExpression(prop.value);
+        } else {
+          // For other patterns, just use the identifier
+          value = babelCore.types.identifier("unknown");
+        }
+
+        properties.push(
+          babelCore.types.objectProperty(
+            key,
+            value,
+            prop.computed,
+            prop.shorthand
+          )
+        );
+      }
+    }
+
+    return babelCore.types.objectExpression(properties);
+  } else if (babelCore.types.isArrayPattern(pattern)) {
+    const elements: (
+      | babelCore.types.Expression
+      | babelCore.types.SpreadElement
+    )[] = [];
+
+    for (const elem of pattern.elements) {
+      if (babelCore.types.isIdentifier(elem)) {
+        elements.push(babelCore.types.identifier(elem.name));
+      } else if (
+        elem &&
+        (babelCore.types.isObjectPattern(elem) ||
+          babelCore.types.isArrayPattern(elem))
+      ) {
+        elements.push(patternToExpression(elem));
+      } else if (babelCore.types.isRestElement(elem)) {
+        if (babelCore.types.isIdentifier(elem.argument)) {
+          elements.push(
+            babelCore.types.spreadElement(
+              babelCore.types.identifier(elem.argument.name)
+            )
+          );
+        }
+      }
+    }
+
+    return babelCore.types.arrayExpression(elements);
+  }
+
+  throw new Error(`Unsupported pattern type: ${(pattern as any).type}`);
+}
+
+function getParameterInfo(
   path: babelCore.NodePath<
     | babelCore.types.FunctionDeclaration
     | babelCore.types.FunctionExpression
@@ -230,34 +315,86 @@ function getUsedFunctionArguments(
   >
 ) {
   const paramNodes = path.node.params;
-  const identifiers: babelCore.types.Identifier[] = [];
+  const cacheFunctionParams: (
+    | babelCore.types.Identifier
+    | babelCore.types.Pattern
+    | babelCore.types.RestElement
+  )[] = [];
+  const callArgs: babelCore.types.Expression[] = [];
 
   for (const param of paramNodes) {
     if (babelCore.types.isIdentifier(param)) {
-      identifiers.push(param);
+      // Simple identifier parameter - pass as-is
+      if (path.isReferenced(param)) {
+        cacheFunctionParams.push(babelCore.types.cloneNode(param));
+        callArgs.push(babelCore.types.identifier(param.name));
+      }
     } else if (babelCore.types.isObjectPattern(param)) {
+      // Destructured object - keep the pattern and reconstruct for call
+      const usedIdentifiers: babelCore.types.Identifier[] = [];
+
       for (const prop of param.properties) {
         if (babelCore.types.isObjectProperty(prop)) {
           if (babelCore.types.isIdentifier(prop.key)) {
-            if (babelCore.types.isIdentifier(prop.value)) {
-              identifiers.push(prop.value);
-            } else {
-              identifiers.push(prop.key);
-            }
+            const identifier = babelCore.types.isIdentifier(prop.value)
+              ? prop.value
+              : prop.key;
+            usedIdentifiers.push(identifier);
+          }
+        } else if (babelCore.types.isRestElement(prop)) {
+          if (babelCore.types.isIdentifier(prop.argument)) {
+            usedIdentifiers.push(prop.argument);
           }
         }
       }
+
+      // Check if any of the destructured identifiers are referenced
+      const referencedIdentifiers = usedIdentifiers.filter((id) =>
+        path.isReferenced(id)
+      );
+
+      if (referencedIdentifiers.length > 0) {
+        // Keep the original destructured pattern for the cached function
+        cacheFunctionParams.push(babelCore.types.cloneNode(param));
+
+        // Reconstruct the pattern as an object expression for the call
+        callArgs.push(patternToExpression(param));
+      }
     } else if (babelCore.types.isArrayPattern(param)) {
+      // Destructured array - keep the pattern and reconstruct for call
+      const usedIdentifiers: babelCore.types.Identifier[] = [];
+
       for (const elem of param.elements) {
         if (babelCore.types.isIdentifier(elem)) {
-          identifiers.push(elem);
+          usedIdentifiers.push(elem);
+        } else if (
+          babelCore.types.isRestElement(elem) &&
+          babelCore.types.isIdentifier(elem.argument)
+        ) {
+          usedIdentifiers.push(elem.argument);
         }
+      }
+
+      const referencedIdentifiers = usedIdentifiers.filter((id) =>
+        path.isReferenced(id)
+      );
+
+      if (referencedIdentifiers.length > 0) {
+        // Keep the original destructured pattern for the cached function
+        cacheFunctionParams.push(babelCore.types.cloneNode(param));
+
+        // Reconstruct the pattern as an array expression for the call
+        callArgs.push(patternToExpression(param));
       }
     } else if (
       babelCore.types.isRestElement(param) &&
       babelCore.types.isIdentifier(param.argument)
     ) {
-      identifiers.push(param.argument);
+      // Rest parameter
+      if (path.isReferenced(param.argument)) {
+        cacheFunctionParams.push(babelCore.types.cloneNode(param));
+        callArgs.push(babelCore.types.identifier(param.argument.name));
+      }
     } else {
       throw new Error(
         `Unsupported parameter type: ${param.type} in function ${
@@ -267,9 +404,7 @@ function getUsedFunctionArguments(
     }
   }
 
-  return identifiers.filter((id) => {
-    return path.isReferenced(id);
-  });
+  return { cacheFunctionParams, callArgs };
 }
 
 function getNonLocalVariables(

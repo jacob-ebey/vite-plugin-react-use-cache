@@ -6,6 +6,9 @@ import devtoolsJson from "vite-plugin-devtools-json";
 import { useCachePlugin } from "vite-plugin-react-use-cache";
 
 export default defineConfig({
+  optimizeDeps: {
+    include: ["react-router/internal/react-server-client"],
+  },
   plugins: [
     tailwindcss(),
     react({

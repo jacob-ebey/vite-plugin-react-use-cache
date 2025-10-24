@@ -49,6 +49,11 @@ import { createUnstorageCache } from "vite-plugin-react-use-cache/unstorage";
 
 const storage = createStorage({ driver: fsDriver({ base: "./.cache" }) });
 
+import.meta.hot?.on("vite:beforeUpdate", () => {
+  // Clear cache on HMR updates during development
+  cacheStorage.clear();
+});
+
 // Wrap your server rendering / request handler with provideCache
 function fetchServer(request: Request) {
   return provideCache(createUnstorageCache(storage), () => {
