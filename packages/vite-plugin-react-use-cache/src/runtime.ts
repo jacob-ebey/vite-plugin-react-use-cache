@@ -227,12 +227,14 @@ export type CacheEntry = {
   expires: number;
   tags: string[];
   cacheLife: string;
+  fileId?: string;
 };
 
 export interface Cache {
   getItem(key: string): Promise<CacheEntry | null>;
   revalidateTag(tag: string): Promise<Set<string>>;
   setItem(key: string, value: CacheEntry): Promise<void>;
+  invalidateByFileId(fileId: string): Promise<void>;
 }
 
 type CacheStorage = {
