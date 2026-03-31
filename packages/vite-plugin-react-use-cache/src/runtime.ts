@@ -24,13 +24,13 @@ export function getFileHash(): string {
 
 export function cache<Func extends (...args: any[]) => any>(
   func: Func,
-  deps: string[]
+  deps: string[],
 ): MakeAsync<Func> {
   return React.cache(async (...args) => {
     const store = cacheStorage.getStore();
     if (!store) {
       throw new Error(
-        "'use cache' can only be used within the context of provideCache."
+        "'use cache' can only be used within the context of provideCache.",
       );
     }
 
@@ -69,7 +69,7 @@ export function cache<Func extends (...args: any[]) => any>(
     });
     const decodedArgs = decodedKeys.slice(deps.length);
     let toCache = cacheStorage.run(cacheContext, async () =>
-      func(...decodedArgs)
+      func(...decodedArgs),
     );
 
     let errors: unknown[] = [];
@@ -92,13 +92,13 @@ export function cache<Func extends (...args: any[]) => any>(
               write(chunk) {
                 encoded += chunk;
               },
-            })
+            }),
           )
           .then(async () => {
             if (errors.length) {
               throw new AggregateError(
                 errors,
-                "Errors occurred during cache encoding."
+                "Errors occurred during cache encoding.",
               );
             }
           })
@@ -122,8 +122,8 @@ export function cache<Func extends (...args: any[]) => any>(
           })
           .catch((reason) => {
             console.error("Failed to cache:", reason);
-          })
-      )
+          }),
+      ),
     );
 
     return returnFromStream(resultStream);
@@ -151,7 +151,7 @@ export function cacheTag(tag: string): void {
   }
   if (!store.tags) {
     throw new Error(
-      "cacheTag must be used within a scope with the 'use cache' directive."
+      "cacheTag must be used within a scope with the 'use cache' directive.",
     );
   }
   store.tags.add(tag);
@@ -172,7 +172,7 @@ export async function provideCache<T>(
   cache: Cache,
   func: () => Promise<T>,
   waitUntilToCache: undefined | (() => Promise<void>) = undefined,
-  waitUntil: (promise: Promise<void>) => void = () => {}
+  waitUntil: (promise: Promise<void>) => void = () => {},
 ): Promise<T> {
   const result = await cacheStorage.run(
     {
@@ -181,7 +181,7 @@ export async function provideCache<T>(
       waitUntilToCache,
       waitUntil,
     },
-    func
+    func,
   );
   return result;
 }
@@ -209,7 +209,7 @@ const cacheLifeValues: CacheLife[] = [
   "max",
 ];
 const cacheLifeMap: Map<CacheLife, number> = new Map(
-  cacheLifeValues.map((life, index) => [life, index])
+  cacheLifeValues.map((life, index) => [life, index]),
 );
 
 const cacheLifeTimes: Map<CacheLife, number> = new Map([
@@ -261,7 +261,7 @@ async function hashData(encodedArgs: string | FormData) {
     {
       name: "SHA-256",
     },
-    encodedData
+    encodedData,
   );
 
   // Convert the ArrayBuffer hash to a hexadecimal string for display

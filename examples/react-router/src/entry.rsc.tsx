@@ -7,6 +7,7 @@ import {
   renderToReadableStream,
 } from "@vitejs/plugin-rsc/rsc";
 import { unstable_matchRSCServerRequest as matchRSCServerRequest } from "react-router";
+import {} from "vite-plugin-react-use-cache/remix";
 
 import { routes } from "./routes/config";
 
