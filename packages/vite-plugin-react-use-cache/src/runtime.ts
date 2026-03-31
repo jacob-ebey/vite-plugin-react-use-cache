@@ -248,7 +248,7 @@ declare global {
   var ___VITE_USE_CACHE_STORAGE___: AsyncLocalStorage<CacheStorage> | undefined;
 }
 
-const cacheStorage = (global.___VITE_USE_CACHE_STORAGE___ ??=
+const cacheStorage = (globalThis.___VITE_USE_CACHE_STORAGE___ ??=
   new AsyncLocalStorage<CacheStorage>());
 
 async function hashData(encodedArgs: string | FormData) {
