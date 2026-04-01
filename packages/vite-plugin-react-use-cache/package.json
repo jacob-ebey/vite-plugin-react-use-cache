@@ -22,16 +22,20 @@
   ],
   "exports": {
     ".": {
-      "types": "./dist/use-cache-plugin.d.ts",
-      "default": "./dist/use-cache-plugin.js"
+      "types": "./dist/use-cache-plugin.d.mts",
+      "default": "./dist/use-cache-plugin.mjs"
+    },
+    "./remix": {
+      "types": "./dist/remix.d.mts",
+      "default": "./dist/remix.mjs"
     },
     "./runtime": {
-      "types": "./dist/runtime.d.ts",
-      "default": "./dist/runtime.js"
+      "types": "./dist/runtime.d.mts",
+      "default": "./dist/runtime.mjs"
     },
     "./unstorage": {
-      "types": "./dist/unstorage.d.ts",
-      "default": "./dist/unstorage.js"
+      "types": "./dist/unstorage.d.mts",
+      "default": "./dist/unstorage.mjs"
     },
     "./package.json": "./package.json"
   },
@@ -42,6 +46,7 @@
   "peerDependencies": {
     "@vitejs/plugin-rsc": "*",
     "react": "*",
+    "remix": "*",
     "unstorage": "*",
     "vite": "*"
   },
@@ -54,10 +59,12 @@
     "@babel/types": "7.28.4",
     "@types/babel__core": "7.20.5",
     "@types/babel__helper-module-imports": "7.18.3",
+    "@types/node": "^24",
     "@typescript/native-preview": "7.0.0-dev.20251023.1",
     "@vitejs/plugin-rsc": "0.4.31",
     "react": "19.1.1",
-    "tsdown": "0.15.2",
+    "remix": "3.0.0-alpha.4",
+    "tsdown": "0.21.7",
     "typescript": "5.9.2",
     "unstorage": "1.17.1",
     "vite": "7.1.6",
